@@ -14,7 +14,7 @@ const initialElements = [
 const onNodeDragStart = (node) => console.log('drag start', node);
 const onNodeDragStop = (node) => console.log('drag stop', node);
 const onElementClick = (element) => console.log('click', element);
-const onPaneClick = () => console.log('onPaneClick');
+const onPaneClick = (event) => console.log('onPaneClick', event);
 
 const InteractionFlow = () => {
   const [elements, setElements] = useState(initialElements);

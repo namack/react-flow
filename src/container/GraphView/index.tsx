@@ -41,7 +41,7 @@ export interface GraphViewProps {
   onMove?: (flowTransform?: FlowTransform) => void;
   onMoveStart?: (flowTransform?: FlowTransform) => void;
   onMoveEnd?: (flowTransform?: FlowTransform) => void;
-  onPaneClick?: () => void;
+  onPaneClick?: (evt: MouseEvent) => void;
   selectionKeyCode: number;
   nodeTypes: NodeTypesType;
   edgeTypes: EdgeTypesType;
@@ -125,8 +125,8 @@ const GraphView = ({
   const fitView = useStoreActions((actions) => actions.fitView);
   const zoom = useStoreActions((actions) => actions.zoom);
 
-  const onZoomPaneClick = useCallback(() => {
-    onPaneClick?.();
+  const onZoomPaneClick = useCallback((evt: React.MouseEvent) => {
+    onPaneClick?.(evt);
     unsetNodesSelection();
   }, [onPaneClick]);
 
