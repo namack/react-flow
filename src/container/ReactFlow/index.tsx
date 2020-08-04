@@ -27,6 +27,7 @@ import {
   Connection,
   ConnectionLineType,
   FlowTransform,
+  OnConnectStartFunc,
 } from '../../types';
 
 import '../../style.css';
@@ -42,11 +43,14 @@ export interface ReactFlowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'on
   onNodeDragStart?: (node: Node) => void;
   onNodeDragStop?: (node: Node) => void;
   onConnect?: (connection: Edge | Connection) => void;
+  onConnectStart?: OnConnectStartFunc;
+  onConnectStop?: () => void;
   onLoad?: OnLoadFunc;
   onMove?: (flowTransform?: FlowTransform) => void;
   onMoveStart?: (flowTransform?: FlowTransform) => void;
   onMoveEnd?: (flowTransform?: FlowTransform) => void;
   onSelectionChange?: (elements: Elements | null) => void;
+  onPaneClick?: () => void;
   nodeTypes: NodeTypesType;
   edgeTypes: EdgeTypesType;
   connectionLineType: ConnectionLineType;
@@ -85,6 +89,8 @@ const ReactFlow = ({
   onMoveEnd,
   onElementsRemove,
   onConnect,
+  onConnectStart,
+  onConnectStop,
   onNodeMouseEnter,
   onNodeMouseMove,
   onNodeMouseLeave,
@@ -112,6 +118,7 @@ const ReactFlow = ({
   zoomOnScroll,
   zoomOnDoubleClick,
   paneMoveable,
+  onPaneClick,
 }: ReactFlowProps) => {
   const nodeTypesParsed = useMemo(() => createNodeTypes(nodeTypes), []);
   const edgeTypesParsed = useMemo(() => createEdgeTypes(edgeTypes), []);
@@ -141,6 +148,8 @@ const ReactFlow = ({
           deleteKeyCode={deleteKeyCode}
           elements={elements}
           onConnect={onConnect}
+          onConnectStart={onConnectStart}
+          onConnectStop={onConnectStop}
           snapToGrid={snapToGrid}
           snapGrid={snapGrid}
           onlyRenderVisibleNodes={onlyRenderVisibleNodes}
@@ -157,6 +166,7 @@ const ReactFlow = ({
           zoomOnScroll={zoomOnScroll}
           zoomOnDoubleClick={zoomOnDoubleClick}
           paneMoveable={paneMoveable}
+          onPaneClick={onPaneClick}
         />
         {onSelectionChange && <SelectionListener onSelectionChange={onSelectionChange} />}
         {children}

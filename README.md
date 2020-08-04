@@ -12,7 +12,7 @@ React Flow is a library for building node-based graphs. You can easily implement
   - [Options](#options-1)
   - [Node Types & Custom Nodes](#node-types--custom-nodes)
   - [Handle Component](#handle-component)
-- [Edges](#nodes)
+- [Edges](#edges)
   - [Options](#options)
   - [Edge Types & Custom Edges](#edge-types--custom-edges)
 - [Components](#components)
@@ -88,11 +88,14 @@ const BasicFlow = () => <ReactFlow elements={elements} />;
 - `onNodeMouseLeave(evt: MouseEvent, node: Node)`: node mouse leave
 - `onNodeContextMenu(evt: MouseEvent, node: Node)`: node context menu
 - `onConnect({ source, target })`: called when user connects two nodes
+- `onConnectStart({ nodeId, handleType })`: called when user starts to drag connection line
+- `onConnectStop()`: called when user stops to drag connection line
 - `onLoad(reactFlowInstance)`: called after flow is initialized
 - `onMove()`: called when user is panning or zooming
 - `onMoveStart()`: called when user starts panning or zooming
 - `onMoveEnd()`: called when user ends panning or zooming
 - `onSelectionChange(elements: Elements)`: called when user selects one or multiple elements
+- `onPaneClick()`: called when user clicks directly on the canvas
 
 #### Interaction
 - `nodesDraggable`: default: `true`. This applies to all nodes. You can also change the behavior of a specific node with the `draggable` node option.

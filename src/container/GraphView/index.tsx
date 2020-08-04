@@ -1,5 +1,4 @@
-import React, { useEffect, useRef, memo, CSSProperties, MouseEvent } from 'react';
-import { ResizeObserver } from 'resize-observer';
+import React, { useEffect, useRef, useCallback, memo, CSSProperties, MouseEvent } from 'react';
 
 import { useStoreState, useStoreActions } from '../../store/hooks';
 import NodeRenderer from '../NodeRenderer';
@@ -10,7 +9,7 @@ import useKeyPress from '../../hooks/useKeyPress';
 import useD3Zoom from '../../hooks/useD3Zoom';
 import useGlobalKeyHandler from '../../hooks/useGlobalKeyHandler';
 import useElementUpdater from '../../hooks/useElementUpdater';
-import { getDimensions } from '../../utils';
+import useResizeHandler from '../../hooks/useResizeHandler';
 import { project, getElements } from '../../utils/graph';
 import {
   Elements,
@@ -22,6 +21,7 @@ import {
   Connection,
   ConnectionLineType,
   FlowTransform,
+  OnConnectStartFunc,
 } from '../../types';
 
 export interface GraphViewProps {
@@ -35,10 +35,13 @@ export interface GraphViewProps {
   onNodeDragStart?: (node: Node) => void;
   onNodeDragStop?: (node: Node) => void;
   onConnect?: (connection: Connection | Edge) => void;
+  onConnectStart?: OnConnectStartFunc;
+  onConnectStop?: () => void;
   onLoad?: OnLoadFunc;
   onMove?: (flowTransform?: FlowTransform) => void;
   onMoveStart?: (flowTransform?: FlowTransform) => void;
   onMoveEnd?: (flowTransform?: FlowTransform) => void;
+  onPaneClick?: () => void;
   selectionKeyCode: number;
   nodeTypes: NodeTypesType;
   edgeTypes: EdgeTypesType;
@@ -84,6 +87,8 @@ const GraphView = ({
   deleteKeyCode,
   elements,
   onConnect,
+  onConnectStart,
+  onConnectStop,
   snapToGrid,
   snapGrid,
   onlyRenderVisibleNodes,
@@ -100,16 +105,17 @@ const GraphView = ({
   zoomOnScroll,
   zoomOnDoubleClick,
   paneMoveable,
+  onPaneClick,
 }: GraphViewProps) => {
+  const isInitialised = useRef<boolean>(false);
   const zoomPane = useRef<HTMLDivElement>(null);
   const rendererNode = useRef<HTMLDivElement>(null);
-  const width = useStoreState((s) => s.width);
-  const height = useStoreState((s) => s.height);
-  const d3Initialised = useStoreState((s) => s.d3Initialised);
-  const nodesSelectionActive = useStoreState((s) => s.nodesSelectionActive);
-  const updateSize = useStoreActions((actions) => actions.updateSize);
-  const setNodesSelection = useStoreActions((actions) => actions.setNodesSelection);
-  const setOnConnect = useStoreActions((a) => a.setOnConnect);
+  const d3Initialised = useStoreState((state) => state.d3Initialised);
+  const nodesSelectionActive = useStoreState((state) => state.nodesSelectionActive);
+  const unsetNodesSelection = useStoreActions((actions) => actions.unsetNodesSelection);
+  const setOnConnect = useStoreActions((actions) => actions.setOnConnect);
+  const setOnConnectStart = useStoreActions((actions) => actions.setOnConnectStart);
+  const setOnConnectStop = useStoreActions((actions) => actions.setOnConnectStop);
   const setSnapGrid = useStoreActions((actions) => actions.setSnapGrid);
   const setNodesDraggable = useStoreActions((actions) => actions.setNodesDraggable);
   const setNodesConnectable = useStoreActions((actions) => actions.setNodesConnectable);
@@ -119,48 +125,16 @@ const GraphView = ({
   const fitView = useStoreActions((actions) => actions.fitView);
   const zoom = useStoreActions((actions) => actions.zoom);
 
+  const onZoomPaneClick = useCallback(() => {
+    onPaneClick?.();
+    unsetNodesSelection();
+  }, [onPaneClick]);
+
+  useResizeHandler(rendererNode);
+  useGlobalKeyHandler({ onElementsRemove, deleteKeyCode });
+  useElementUpdater(elements);
+
   const selectionKeyPressed = useKeyPress(selectionKeyCode);
-
-  const onZoomPaneClick = () => setNodesSelection({ isActive: false });
-
-  const updateDimensions = () => {
-    if (!rendererNode.current) {
-      return;
-    }
-
-    const size = getDimensions(rendererNode.current);
-
-    if (size.height === 0 || size.width === 0) {
-      throw new Error('The React Flow parent container needs a width and a height to render the graph.');
-    }
-
-    updateSize(size);
-  };
-
-  useEffect(() => {
-    let resizeObserver: ResizeObserver;
-
-    updateDimensions();
-    window.onresize = updateDimensions;
-
-    if (rendererNode.current) {
-      resizeObserver = new ResizeObserver((entries) => {
-        for (let _ of entries) {
-          updateDimensions();
-        }
-      });
-
-      resizeObserver.observe(rendererNode.current);
-    }
-
-    return () => {
-      window.onresize = null;
-
-      if (resizeObserver && rendererNode.current) {
-        resizeObserver.unobserve(rendererNode.current!);
-      }
-    };
-  }, []);
 
   useD3Zoom({
     zoomPane,
@@ -174,19 +148,19 @@ const GraphView = ({
   });
 
   useEffect(() => {
-    if (d3Initialised && onLoad) {
-      onLoad({
-        fitView: (params = { padding: 0.1 }) => fitView(params),
-        zoomIn: () => zoom(0.2),
-        zoomOut: () => zoom(-0.2),
-        project,
-        getElements,
-        setTransform: (transform: FlowTransform) =>
-          setInitTransform({ x: transform.x, y: transform.y, k: transform.zoom }),
-      });
-    }
+    if (!isInitialised.current && d3Initialised) {
+      if (onLoad) {
+        onLoad({
+          fitView: (params = { padding: 0.1 }) => fitView(params),
+          zoomIn: () => zoom(0.2),
+          zoomOut: () => zoom(-0.2),
+          project,
+          getElements,
+          setTransform: (transform: FlowTransform) =>
+            setInitTransform({ x: transform.x, y: transform.y, k: transform.zoom }),
+        });
+      }
 
-    if (d3Initialised) {
       const initialTransform = {
         x: defaultPosition[0],
         y: defaultPosition[1],
@@ -196,6 +170,8 @@ const GraphView = ({
       if (initialTransform.x !== 0 || initialTransform.y !== 0 || initialTransform.k !== 1) {
         setInitTransform(initialTransform);
       }
+
+      isInitialised.current = true;
     }
   }, [d3Initialised, onLoad]);
 
@@ -206,8 +182,20 @@ const GraphView = ({
   }, [onConnect]);
 
   useEffect(() => {
+    if (onConnectStart) {
+      setOnConnectStart(onConnectStart);
+    }
+  }, [onConnectStart]);
+
+  useEffect(() => {
+    if (onConnectStop) {
+      setOnConnectStop(onConnectStop);
+    }
+  }, [onConnectStop]);
+
+  useEffect(() => {
     setSnapGrid({ snapToGrid, snapGrid });
-  }, [snapToGrid]);
+  }, [snapToGrid, snapGrid]);
 
   useEffect(() => {
     setNodesDraggable(nodesDraggable);
@@ -225,9 +213,6 @@ const GraphView = ({
     setMinMaxZoom({ minZoom, maxZoom });
   }, [minZoom, maxZoom]);
 
-  useGlobalKeyHandler({ onElementsRemove, deleteKeyCode });
-  useElementUpdater(elements);
-
   return (
     <div className="react-flow__renderer" ref={rendererNode}>
       <NodeRenderer
@@ -243,8 +228,6 @@ const GraphView = ({
         selectNodesOnDrag={selectNodesOnDrag}
       />
       <EdgeRenderer
-        width={width}
-        height={height}
         edgeTypes={edgeTypes}
         onElementClick={onElementClick}
         connectionLineType={connectionLineType}
